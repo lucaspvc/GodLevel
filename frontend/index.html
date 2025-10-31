@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard de Restaurantes</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+    <div class="max-w-6xl mx-auto p-6">
+        <h1 class="text-2xl font-bold mb-6 text-center">📊 Dashboard Geral</h1>
+
+        <!-- KPIs -->
+        <div id="kpis" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"></div>
+
+        <!-- Gráfico -->
+        <div class="bg-white rounded-lg shadow p-4 mb-8">
+            <h2 class="text-lg font-semibold mb-2">Tendência de Faturamento Diário</h2>
+            <canvas id="chartTendencia" height="100"></canvas>
+        </div>
+
+        <!-- Tabelas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <h2 class="text-lg font-semibold mb-2">Top 5 Produtos</h2>
+                <table class="min-w-full text-sm">
+                    <thead><tr class="border-b"><th>Produto</th><th>Qtd</th><th>Receita</th></tr></thead>
+                    <tbody id="tabelaProdutos"></tbody>
+                </table>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <h2 class="text-lg font-semibold mb-2">Faturamento por Loja</h2>
+                <table class="min-w-full text-sm">
+                    <thead><tr class="border-b"><th>Loja</th><th>Receita</th></tr></thead>
+                    <tbody id="tabelaLojas"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+</html>
