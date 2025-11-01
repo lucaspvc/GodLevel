@@ -1,7 +1,10 @@
 from connection import conecta
 import math
 
-def get_sales_dashboard(start_date=None, end_date=None, store_id=None, channel_id=None, page=1, limit=20):
+def get_dashboard_sales(start_date=None, end_date=None,
+                        store_id=None, channel_id=None,
+                        weekday=None, start_hour=None, end_hour=None,
+                        page=1, limit=20):
     conn = conecta()
     cursor = conn.cursor()
 
@@ -9,21 +12,38 @@ def get_sales_dashboard(start_date=None, end_date=None, store_id=None, channel_i
         filtros = []
         params = []
 
-        # Filtro data (usa parâmetros seguros)
+        # Filtro por intervalo de datas
         if start_date and end_date:
             filtros.append("s.created_at BETWEEN %s AND %s")
             params.append(f"{start_date} 00:00:00")
             params.append(f"{end_date} 23:59:59")
 
+        # Filtro por loja
         if store_id:
             filtros.append("s.store_id = %s")
             params.append(store_id)
 
+        # Filtro por canal
         if channel_id:
             filtros.append("s.channel_id = %s")
             params.append(channel_id)
 
+        # Filtro por dia da semana (0=domingo, 1=segunda ...)
+        if weekday is not None:
+            filtros.append("EXTRACT(DOW FROM s.created_at) = %s")
+            params.append(weekday)
+
+        # Filtro por faixa de horário (ex: 18 = 18h)
+        if start_hour is not None:
+            filtros.append("EXTRACT(HOUR FROM s.created_at) >= %s")
+            params.append(start_hour)
+
+        if end_hour is not None:
+            filtros.append("EXTRACT(HOUR FROM s.created_at) <= %s")
+            params.append(end_hour)
+
         where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
+
 
         # 1) KPIs
         kpis_sql = f"""
@@ -108,8 +128,7 @@ def get_sales_dashboard(start_date=None, end_date=None, store_id=None, channel_i
             ORDER BY s.created_at DESC
             LIMIT %s OFFSET %s;
         """
-
-
+    
         pedidos_params = tuple(params) + (limit, offset)
         cursor.execute(pedidos_sql, pedidos_params)
         pedidos_rows = cursor.fetchall()
@@ -125,6 +144,44 @@ def get_sales_dashboard(start_date=None, end_date=None, store_id=None, channel_i
             } for r in pedidos_rows
         ]
 
+        # 6) Vendas por dia da semana
+        semana_sql = f"""
+            SELECT 
+                TO_CHAR(s.created_at, 'Day') AS dia_semana,
+                TO_CHAR(s.created_at, 'D')::int AS ordem_semana,
+                COUNT(*)::int AS total_pedidos,
+                SUM(s.total_amount)::numeric AS faturamento
+            FROM sales s
+            {where_clause}
+            GROUP BY dia_semana, ordem_semana
+            ORDER BY ordem_semana;
+        """
+        cursor.execute(semana_sql, tuple(params))
+        semana_rows = cursor.fetchall()
+        vendas_por_dia = [
+            { "dia": r[0].strip(), "total": int(r[1]), "faturamento": float(r[2]) }
+            for r in semana_rows
+        ]
+        # 7) Vendas por hora
+        hora_sql = f"""
+            SELECT 
+                DATE_TRUNC('hour', s.created_at) AS hora,
+                COUNT(*)::int AS total,
+                SUM(s.total_amount)::numeric AS faturamento
+            FROM sales s
+            {where_clause}
+            GROUP BY 1
+            ORDER BY hora;
+        """
+        cursor.execute(hora_sql, tuple(params))
+        hora_rows = cursor.fetchall()
+        vendas_por_hora = [
+            { "hora": r[0].strftime("%H:%M"), "total": int(r[1]), "faturamento": float(r[2]) }
+            for r in hora_rows
+        ]
+
+
+
         return {
             "kpis": kpis,
             "faturamento_diario": faturamento_diario,
@@ -132,7 +189,9 @@ def get_sales_dashboard(start_date=None, end_date=None, store_id=None, channel_i
             "pedidos": pedidos,
             "pagina": page,
             "total_paginas": total_pages,
-            "total_registros": total_count
+            "total_registros": total_count,
+            "vendas_por_dia_semana": vendas_por_dia,
+            "vendas_por_horario": vendas_por_hora
         }
 
     finally:

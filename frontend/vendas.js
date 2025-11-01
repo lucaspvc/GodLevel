@@ -44,16 +44,28 @@ function montarQueryParams() {
     const dataFim = document.getElementById("dataFim").value;
     const loja = document.getElementById("filtroLoja").value;
     const canal = document.getElementById("filtroCanal").value;
+    const diaSemana = document.getElementById("filtroDiaSemana").value;
+    const horario = document.getElementById("filtroHorario").value;
 
     const params = new URLSearchParams();
     if (dataInicio) params.append("start_date", dataInicio);
     if (dataFim) params.append("end_date", dataFim);
     if (loja) params.append("store_id", loja);
     if (canal) params.append("channel_id", canal);
+    if (diaSemana) params.append("weekday", diaSemana); // Ex: 1 = Segunda, 7 = Domingo
+
+    // Horários podem ser enviados como 18:00-23:00 ou como start_hour / end_hour
+    if (horario) {
+        const [start, end] = horario.split("-"); // agora são números válidos
+        params.append("start_hour", start);
+        params.append("end_hour", end);
+    }
+
     params.append("page", currentPage);
     params.append("limit", 20);
     return params.toString();
 }
+
 
 async function carregarVendas() {
     try {
