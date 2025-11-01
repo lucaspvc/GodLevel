@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.dashboard_routes import router as dashboard_router
+from routes.sales_routes import router as sales_router
+from routes.filtros_routes import router as filtros_router
+
 
 app = FastAPI(
     title="Restaurant Analytics API",
@@ -19,6 +22,8 @@ app.add_middleware(
 
 # Registrar as rotas
 app.include_router(dashboard_router)
+app.include_router(sales_router)
+app.include_router(filtros_router)
 
 @app.get("/")
 def root():

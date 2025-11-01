@@ -19,7 +19,7 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
             COUNT(*) AS total_pedidos,
             SUM(s.total_amount) AS faturamento_total,
             ROUND(AVG(s.total_amount), 2) AS ticket_medio,
-            ROUND(SUM(CASE WHEN s.sale_status_desc = 'Cancelada' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS taxa_cancelamento
+            ROUND(SUM(CASE WHEN s.sale_status_desc = 'CANCELLED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS taxa_cancelamento
         FROM sales s
         {where_clause};
     """
