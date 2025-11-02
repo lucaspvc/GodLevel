@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Produtos & Cardápio — Dashboard</title>
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="produtos.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900">
+  <div class="max-w-7xl mx-auto p-6">
+    <h1 class="text-2xl font-bold mb-4 text-center">🍽️ Produtos & Cardápio — Análise</h1>
+
+    <!-- FILTROS -->
+    <div class="bg-white shadow-lg rounded-lg p-4 mb-6 grid grid-cols-1 md:grid-cols-8 gap-3 items-center">
+      <input type="date" id="dataInicio" class="border p-2 rounded" />
+      <input type="date" id="dataFim" class="border p-2 rounded" />
+
+      <select id="filtroLoja" class="border p-2 rounded">
+        <option value="">Todas as lojas</option>
+      </select>
+
+      <select id="filtroCanal" class="border p-2 rounded">
+        <option value="">Todos os canais</option>
+      </select>
+
+      <select id="filtroCategoria" class="border p-2 rounded">
+        <option value="">Todas as categorias</option>
+      </select>
+
+      <select id="filtroDiaSemana" class="border p-2 rounded">
+        <option value="">Todos os dias</option>
+        <option value="1">Segunda</option>
+        <option value="2">Terça</option>
+        <option value="3">Quarta</option>
+        <option value="4">Quinta</option>
+        <option value="5">Sexta</option>
+        <option value="6">Sábado</option>
+        <option value="0">Domingo</option>
+      </select>
+
+      <select id="filtroHorario" class="border p-2 rounded">
+        <option value="">Todos os horários</option>
+        <option value="6-12">06h - 12h</option>
+        <option value="12-15">12h - 15h</option>
+        <option value="15-18">15h - 18h</option>
+        <option value="18-23">18h - 23h</option>
+      </select>
+
+      <div class="col-span-8 md:col-span-1 flex gap-2 justify-end">
+        <button id="btnFiltrar" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Aplicar</button>
+        <button id="btnExport" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Exportar CSV</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div id="kpisProd" class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6"></div>
+
+    <!-- GRÁFICOS -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Top 10 Produtos (Unidades)</h2>
+        <canvas id="chartTopVendidos" height="200"></canvas>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Menu Engineering (Margem × Volume)</h2>
+        <canvas id="chartMenuEng" height="200"></canvas>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Mix por Categoria</h2>
+        <canvas id="chartMix" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- EVOLUCAO E TABELA -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Evolução de Vendas (produto / categoria)</h2>
+        <canvas id="chartEvolucao" height="120"></canvas>
+      </div>
+
+      <div class="bg-white rounded-lg shadow p-4">
+        <h2 class="text-lg font-semibold mb-2">Produtos (Tabela Analítica)</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tableProdutos">
+            <thead class="border-b font-semibold bg-gray-50">
+              <tr>
+                <th class="px-2 py-2 text-left">Produto</th>
+                <th class="px-2 py-2 text-left">Categoria</th>
+                <th class="px-2 py-2 text-right">Qtde</th>
+                <th class="px-2 py-2 text-right">Faturamento</th>
+                <th class="px-2 py-2 text-right">Custo</th>
+                <th class="px-2 py-2 text-right">Margem %</th>
+                <th class="px-2 py-2 text-right">Margem R$</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyProdutos"></tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between items-center mt-4">
+          <div>
+            <button id="prevPage" class="px-3 py-1 bg-gray-300 rounded">Anterior</button>
+            <button id="nextPage" class="px-3 py-1 bg-gray-300 rounded">Próxima</button>
+          </div>
+          <div id="pageInfo" class="text-sm text-gray-600"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

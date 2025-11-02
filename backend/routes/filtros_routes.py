@@ -22,3 +22,13 @@ def listar_canais():
     cursor.close()
     conn.close()
     return canais
+
+@router.get("/categorias")
+def listar_categorias():
+    conn = conecta()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM categories ORDER BY name;")
+    categorias = [{"id": r[0], "nome": r[1]} for r in cursor.fetchall()]
+    cursor.close()
+    conn.close()
+    return categorias
