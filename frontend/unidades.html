@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visão das Unidades</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+        }
+
+        table th, table td {
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        table tbody tr:hover {
+            background-color: #f9fafb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <header class="bg-white shadow p-4 text-xl font-semibold">
+        📊 Visão das Unidades
+    </header>
+
+    <main class="p-6">
+
+        <!-- FILTROS -->
+        <div class="bg-white shadow-lg rounded-lg p-4 mb-6 grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+            <input type="date" id="dataInicio" class="border p-2 rounded" />
+            <input type="date" id="dataFim" class="border p-2 rounded" />
+
+            <select id="filtroStatus" class="border p-2 rounded">
+                <option value="">Todos status</option>
+                <option value="Ativa">Ativa</option>
+                <option value="Inativa">Inativa</option>
+            </select>
+
+            <select id="filtroCanal" class="border p-2 rounded">
+                <option value="">Todos os canais</option>
+            </select>
+
+            <button id="btnFiltrar" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Aplicar</button>
+            <button id="btnExport" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Exportar CSV</button>
+        </div>
+
+        <!-- KPIS -->
+        <div id="kpisUnidades" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6"></div>
+
+        <!-- TABELA -->
+        <div class="bg-white shadow-lg rounded-lg p-4">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-200">
+                    <tr>
+                        <th class="px-2 py-2 text-left">Unidade</th>
+                        <th class="px-2 py-2">Status</th>
+                        <th class="px-2 py-2 text-right">Faturamento</th>
+                        <th class="px-2 py-2 text-right">Ticket Médio</th>
+                        <th class="px-2 py-2 text-right">Pedidos</th>
+                        <th class="px-2 py-2">Última Venda</th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaUnidades"></tbody>
+            </table>
+
+            <div class="flex justify-between items-center mt-4">
+                <button id="prevPage" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Anterior</button>
+                <span id="pageInfo" class="text-sm text-gray-700">Página 1 de 1</span>
+                <button id="nextPage" class="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400">Próxima</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="unidades.js"></script>
+</body>
+</html>
