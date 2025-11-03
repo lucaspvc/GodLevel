@@ -4,83 +4,108 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
     conn = conecta()
     cursor = conn.cursor()
 
-    filtros = []
-    if start_date and end_date:
-        filtros.append(f"s.created_at BETWEEN '{start_date}' AND '{end_date}'")
-    if store_id:
-        filtros.append(f"s.store_id = {store_id}")
-    if channel_id:
-        filtros.append(f"s.channel_id = {channel_id}")
+    try:
+        filtros = []
+        params = []
 
-    where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
+        # Filtros dinâmicos
+        if start_date and end_date:
+            filtros.append("s.created_at BETWEEN %s AND %s")
+            params.append(f"{start_date} 00:00:00")
+            params.append(f"{end_date} 23:59:59")
 
-    cmd = f"""
-        SELECT
-            COUNT(*) AS total_pedidos,
-            SUM(s.total_amount) AS faturamento_total,
-            ROUND(AVG(s.total_amount), 2) AS ticket_medio,
-            ROUND(SUM(CASE WHEN s.sale_status_desc = 'CANCELLED' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2) AS taxa_cancelamento
-        FROM sales s
-        {where_clause};
-    """
-    cursor.execute(cmd)
-    kpis = cursor.fetchone()
+        if store_id:
+            filtros.append("s.store_id = %s")
+            params.append(store_id)
 
-    # Tendência (faturamento diário)
-    cursor.execute(f"""
-        SELECT 
-            DATE(s.created_at) AS data, 
-            SUM(s.total_amount) AS faturamento
-        FROM sales s
-        {where_clause}
-        GROUP BY DATE(s.created_at)
-        ORDER BY data;
-    """)
-    tendencia = cursor.fetchall()
+        if channel_id:
+            filtros.append("s.channel_id = %s")
+            params.append(channel_id)
 
-    # Top produtos
-    cursor.execute(f"""
-        SELECT 
-            p.name, SUM(ps.quantity) AS qtd_vendida, SUM(ps.total_price) AS receita
-        FROM product_sales ps
-        JOIN products p ON ps.product_id = p.id
-        JOIN sales s ON ps.sale_id = s.id
-        {where_clause}
-        GROUP BY p.name
-        ORDER BY receita DESC
-        LIMIT 5;
-    """)
-    top_produtos = cursor.fetchall()
+        where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
 
-    # Faturamento por loja
-    cursor.execute(f"""
-        SELECT 
-            st.name, SUM(s.total_amount) AS receita
-        FROM sales s
-        JOIN stores st ON s.store_id = st.id
-        {where_clause}
-        GROUP BY st.name
-        ORDER BY receita DESC;
-    """)
-    faturamento_lojas = cursor.fetchall()
+        # 1️⃣ KPIs principais
+        kpis_sql = f"""
+            SELECT
+                COUNT(*)::int AS total_pedidos,
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento_total,
+                COALESCE(ROUND(AVG(s.total_amount)::numeric, 2), 0) AS ticket_medio,
+                COALESCE(ROUND(
+                    SUM(CASE WHEN s.sale_status_desc = 'CANCELLED' THEN 1 ELSE 0 END)::numeric * 100.0 / NULLIF(COUNT(*), 0),
+                2), 0) AS taxa_cancelamento
+            FROM sales s
+            {where_clause};
+        """
+        cursor.execute(kpis_sql, tuple(params))
+        kpis_row = cursor.fetchone()
+        kpis = {
+            "total_pedidos": int(kpis_row[0]),
+            "faturamento_total": float(kpis_row[1]),
+            "ticket_medio": float(kpis_row[2]),
+            "taxa_cancelamento": float(kpis_row[3]),
+        }
 
-    cursor.close()
-    conn.close()
-
-    return {
-        "kpis": {
-            "total_pedidos": kpis[0],
-            "faturamento_total": float(kpis[1] or 0),
-            "ticket_medio": float(kpis[2] or 0),
-            "taxa_cancelamento": float(kpis[3] or 0)
-        },
-        "tendencia": [
-            {"data": str(d[0]), "faturamento": float(d[1])} for d in tendencia
-        ],
-        "top_produtos": [
-            {"produto": p[0], "quantidade": p[1], "receita": float(p[2])} for p in top_produtos
-        ],
-        "faturamento_lojas": [
-            {"loja": l[0], "receita": float(l[1])} for l in faturamento_lojas
+        # 2️⃣ Tendência de faturamento diário
+        tendencia_sql = f"""
+            SELECT 
+                DATE(s.created_at) AS data, 
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento
+            FROM sales s
+            {where_clause}
+            GROUP BY DATE(s.created_at)
+            ORDER BY data;
+        """
+        cursor.execute(tendencia_sql, tuple(params))
+        tendencia_rows = cursor.fetchall()
+        tendencia = [
+            {"data": str(r[0]), "faturamento": float(r[1])} for r in tendencia_rows
         ]
-    }
+
+        # 3️⃣ Top produtos
+        top_produtos_sql = f"""
+            SELECT 
+                p.name AS produto,
+                SUM(ps.quantity)::int AS quantidade,
+                COALESCE(SUM(ps.total_price), 0)::numeric AS receita
+            FROM product_sales ps
+            JOIN products p ON ps.product_id = p.id
+            JOIN sales s ON ps.sale_id = s.id
+            {where_clause}
+            GROUP BY p.name
+            ORDER BY receita DESC
+            LIMIT 5;
+        """
+        cursor.execute(top_produtos_sql, tuple(params))
+        top_produtos_rows = cursor.fetchall()
+        top_produtos = [
+            {"produto": r[0], "quantidade": int(r[1]), "receita": float(r[2])}
+            for r in top_produtos_rows
+        ]
+
+        # 4️⃣ Faturamento por loja
+        faturamento_lojas_sql = f"""
+            SELECT 
+                st.name AS loja,
+                COALESCE(SUM(s.total_amount), 0)::numeric AS receita
+            FROM sales s
+            JOIN stores st ON s.store_id = st.id
+            {where_clause}
+            GROUP BY st.name
+            ORDER BY receita DESC;
+        """
+        cursor.execute(faturamento_lojas_sql, tuple(params))
+        faturamento_lojas_rows = cursor.fetchall()
+        faturamento_lojas = [
+            {"loja": r[0], "receita": float(r[1])} for r in faturamento_lojas_rows
+        ]
+
+        return {
+            "kpis": kpis,
+            "tendencia": tendencia,
+            "top_produtos": top_produtos,
+            "faturamento_lojas": faturamento_lojas,
+        }
+
+    finally:
+        cursor.close()
+        conn.close()

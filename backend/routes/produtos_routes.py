@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from services.produtos_service import get_produtos, get_produto_by_id, criar_produto, get_produtos_analitico
+from services.produtos_service import get_produtos, get_produtos_analitico
 
 router = APIRouter(prefix="/produtos", tags=["Produtos"])
 
@@ -53,24 +53,3 @@ def listar_produtos_analitico(
         start_hour=start_hour,
         end_hour=end_hour
     )
-
-
-
-@router.get("/{produto_id}")
-def buscar_produto(produto_id: int):
-    """
-    Retorna os detalhes de um produto pelo ID.
-    """
-    produto = get_produto_by_id(produto_id)
-    if not produto:
-        # Mais adequado do que retornar um dicionário simples
-        raise HTTPException(status_code=404, detail="Produto não encontrado")
-    return produto
-
-
-@router.post("/", status_code=201)
-def criar_novo_produto(produto: ProdutoCreate):
-    """
-    Cria um novo produto no catálogo.
-    """
-    return criar_produto(produto.dict())

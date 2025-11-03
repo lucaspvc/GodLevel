@@ -2,7 +2,7 @@ let currentPage = 1;
 let totalPages = 1;
 let currentUnidades = [];
 
-const API_URL = "http://localhost:8000/units/overview"; // endpoint genérico
+const API_URL = "http://localhost:8000/units/overview";
 
 function formatCurrency(v) {
     const valor = Number(v) || 0;
@@ -20,7 +20,7 @@ function montarQueryParams() {
     if (dataInicio) params.append("start_date", dataInicio);
     if (dataFim) params.append("end_date", dataFim);
     if (status) params.append("status", status);
-    if (canal) params.append("canal", canal);
+    if (canal) params.append("channel_id", canal);
     params.append("page", currentPage);
     params.append("limit", 20);
     return params.toString();

@@ -1,39 +1,38 @@
 from connection import conecta
 import math
 
-def get_dashboard_sales(start_date=None, end_date=None,
-                        store_id=None, channel_id=None,
-                        weekday=None, start_hour=None, end_hour=None,
-                        page=1, limit=20):
+def get_dashboard_sales(
+    start_date=None, end_date=None,
+    store_id=None, channel_id=None,
+    weekday=None, start_hour=None, end_hour=None,
+    page=1, limit=20
+):
     conn = conecta()
     cursor = conn.cursor()
 
     try:
+        # ---------------------------------------
+        # 🔍 Montagem de filtros dinâmicos
+        # ---------------------------------------
         filtros = []
         params = []
 
-        # Filtro por intervalo de datas
         if start_date and end_date:
             filtros.append("s.created_at BETWEEN %s AND %s")
-            params.append(f"{start_date} 00:00:00")
-            params.append(f"{end_date} 23:59:59")
+            params += [f"{start_date} 00:00:00", f"{end_date} 23:59:59"]
 
-        # Filtro por loja
         if store_id:
             filtros.append("s.store_id = %s")
             params.append(store_id)
 
-        # Filtro por canal
         if channel_id:
             filtros.append("s.channel_id = %s")
             params.append(channel_id)
 
-        # Filtro por dia da semana (0=domingo, 1=segunda ...)
         if weekday is not None:
             filtros.append("EXTRACT(DOW FROM s.created_at) = %s")
             params.append(weekday)
 
-        # Filtro por faixa de horário (ex: 18 = 18h)
         if start_hour is not None:
             filtros.append("EXTRACT(HOUR FROM s.created_at) >= %s")
             params.append(start_hour)
@@ -42,50 +41,55 @@ def get_dashboard_sales(start_date=None, end_date=None,
             filtros.append("EXTRACT(HOUR FROM s.created_at) <= %s")
             params.append(end_hour)
 
-        where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
+        where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
 
-
-        # 1) KPIs
+        # ---------------------------------------
+        # 1️⃣ KPIs principais
+        # ---------------------------------------
         kpis_sql = f"""
             SELECT
                 COUNT(*)::int AS total_pedidos,
-                COALESCE(SUM(s.total_amount),0)::numeric AS faturamento_total,
-                COALESCE(ROUND(AVG(s.total_amount)::numeric,2),0) AS ticket_medio,
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento_total,
+                COALESCE(ROUND(AVG(s.total_amount)::numeric, 2), 0) AS ticket_medio,
                 COALESCE(ROUND(
-                    SUM(CASE WHEN s.sale_status_desc = 'CANCELLED' THEN 1 ELSE 0 END)::numeric * 100.0 / NULLIF(COUNT(*),0)
-                ,2),0) AS taxa_cancelamento
+                    SUM(CASE WHEN s.sale_status_desc = 'CANCELLED' THEN 1 ELSE 0 END)::numeric * 100.0 / NULLIF(COUNT(*), 0),
+                2), 0) AS taxa_cancelamento
             FROM sales s
             {where_clause};
         """
         cursor.execute(kpis_sql, tuple(params))
-        kpis_row = cursor.fetchone()
+        total_pedidos, faturamento_total, ticket_medio, taxa_cancelamento = cursor.fetchone()
+
         kpis = {
-            "total_pedidos": int(kpis_row[0]),
-            "faturamento_total": float(kpis_row[1]) if kpis_row[1] is not None else 0.0,
-            "ticket_medio": float(kpis_row[2]) if kpis_row[2] is not None else 0.0,
-            "taxa_cancelamento": float(kpis_row[3]) if kpis_row[3] is not None else 0.0,
+            "total_pedidos": int(total_pedidos or 0),
+            "faturamento_total": float(faturamento_total or 0),
+            "ticket_medio": float(ticket_medio or 0),
+            "taxa_cancelamento": float(taxa_cancelamento or 0),
         }
 
-        # 2) Faturamento diário (timeseries)
+        # ---------------------------------------
+        # 2️⃣ Faturamento diário (timeseries)
+        # ---------------------------------------
         tendencia_sql = f"""
             SELECT
                 DATE(s.created_at) AS data,
-                COALESCE(SUM(s.total_amount),0) AS faturamento
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento
             FROM sales s
             {where_clause}
             GROUP BY DATE(s.created_at)
             ORDER BY data;
         """
         cursor.execute(tendencia_sql, tuple(params))
-        tendencia_rows = cursor.fetchall()
         faturamento_diario = [
-            {"data": str(r[0]), "faturamento": float(r[1])} for r in tendencia_rows
+            {"data": str(r[0]), "faturamento": float(r[1])} for r in cursor.fetchall()
         ]
 
-        # 3) Vendas por canal
+        # ---------------------------------------
+        # 3️⃣ Vendas por canal
+        # ---------------------------------------
         canais_sql = f"""
             SELECT
-                ch.name AS canal,
+                COALESCE(ch.name, 'Desconhecido') AS canal,
                 COUNT(*)::int AS total
             FROM sales s
             LEFT JOIN channels ch ON s.channel_id = ch.id
@@ -94,31 +98,31 @@ def get_dashboard_sales(start_date=None, end_date=None,
             ORDER BY total DESC;
         """
         cursor.execute(canais_sql, tuple(params))
-        canais_rows = cursor.fetchall()
         vendas_por_canal = [
-            {"canal": (r[0] if r[0] is not None else "Desconhecido"), "total": int(r[1])}
-            for r in canais_rows
+            {"canal": canal, "total": int(total)}
+            for canal, total in cursor.fetchall()
         ]
 
-        # 4) Paginação
+        # ---------------------------------------
+        # 4️⃣ Paginação
+        # ---------------------------------------
         count_sql = f"SELECT COUNT(*) FROM sales s {where_clause};"
         cursor.execute(count_sql, tuple(params))
-        total_count = cursor.fetchone()[0]
-        total_pages = math.ceil(total_count / limit) if limit else 1
+        total_registros = cursor.fetchone()[0]
+        total_paginas = math.ceil(total_registros / limit) if limit else 1
         offset = (page - 1) * limit
 
-        # 5) Lista de pedidos
+        # ---------------------------------------
+        # 5️⃣ Lista de pedidos
+        # ---------------------------------------
         pedidos_sql = f"""
             SELECT
                 s.id,
                 s.created_at,
-                CASE 
-                    WHEN c.customer_name IS NULL OR TRIM(c.customer_name) = '' THEN 'Cliente não identificado'
-                    ELSE c.customer_name
-                END AS customer,
-                COALESCE(st.name, '') AS store,
-                COALESCE(ch.name, '') AS channel,
-                COALESCE(s.total_amount,0)::numeric AS valor,
+                COALESCE(NULLIF(TRIM(c.customer_name), ''), 'Cliente não identificado') AS cliente,
+                COALESCE(st.name, '') AS loja,
+                COALESCE(ch.name, '') AS canal,
+                COALESCE(s.total_amount, 0)::numeric AS valor,
                 COALESCE(s.sale_status_desc, '') AS status
             FROM sales s
             LEFT JOIN customers c ON s.customer_id = c.id
@@ -128,70 +132,80 @@ def get_dashboard_sales(start_date=None, end_date=None,
             ORDER BY s.created_at DESC
             LIMIT %s OFFSET %s;
         """
-    
-        pedidos_params = tuple(params) + (limit, offset)
-        cursor.execute(pedidos_sql, pedidos_params)
-        pedidos_rows = cursor.fetchall()
+        cursor.execute(pedidos_sql, tuple(params) + (limit, offset))
         pedidos = [
             {
                 "id": int(r[0]),
-                "data": str(r[1]),
+                "data": str(r[1]).split('.')[0] if r[1] else None,
                 "cliente": r[2],
                 "loja": r[3],
                 "canal": r[4],
                 "valor": float(r[5]),
                 "status": r[6],
-            } for r in pedidos_rows
+            }
+            for r in cursor.fetchall()
         ]
 
-        # 6) Vendas por dia da semana
+        # ---------------------------------------
+        # 6️⃣ Vendas por dia da semana
+        # ---------------------------------------
         semana_sql = f"""
             SELECT 
                 TO_CHAR(s.created_at, 'Day') AS dia_semana,
                 TO_CHAR(s.created_at, 'D')::int AS ordem_semana,
                 COUNT(*)::int AS total_pedidos,
-                SUM(s.total_amount)::numeric AS faturamento
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento
             FROM sales s
             {where_clause}
             GROUP BY dia_semana, ordem_semana
             ORDER BY ordem_semana;
         """
         cursor.execute(semana_sql, tuple(params))
-        semana_rows = cursor.fetchall()
         vendas_por_dia = [
-            { "dia": r[0].strip(), "total": int(r[1]), "faturamento": float(r[2]) }
-            for r in semana_rows
+            {
+                "dia": r[0].strip(),
+                "total": int(r[2]),
+                "faturamento": float(r[3])
+            }
+            for r in cursor.fetchall()
         ]
-        # 7) Vendas por hora
+
+        # ---------------------------------------
+        # 7️⃣ Vendas por hora
+        # ---------------------------------------
         hora_sql = f"""
             SELECT 
                 DATE_TRUNC('hour', s.created_at) AS hora,
                 COUNT(*)::int AS total,
-                SUM(s.total_amount)::numeric AS faturamento
+                COALESCE(SUM(s.total_amount), 0)::numeric AS faturamento
             FROM sales s
             {where_clause}
             GROUP BY 1
             ORDER BY hora;
         """
         cursor.execute(hora_sql, tuple(params))
-        hora_rows = cursor.fetchall()
         vendas_por_hora = [
-            { "hora": r[0].strftime("%H:%M"), "total": int(r[1]), "faturamento": float(r[2]) }
-            for r in hora_rows
+            {
+                "hora": str(r[0]).split('.')[0] if r[0] else None,
+                "total": int(r[1]),
+                "faturamento": float(r[2]),
+            }
+            for r in cursor.fetchall()
         ]
 
-
-
+        # ---------------------------------------
+        # ✅ Retorno final
+        # ---------------------------------------
         return {
             "kpis": kpis,
             "faturamento_diario": faturamento_diario,
             "vendas_por_canal": vendas_por_canal,
             "pedidos": pedidos,
             "pagina": page,
-            "total_paginas": total_pages,
-            "total_registros": total_count,
+            "total_paginas": total_paginas,
+            "total_registros": total_registros,
             "vendas_por_dia_semana": vendas_por_dia,
-            "vendas_por_horario": vendas_por_hora
+            "vendas_por_horario": vendas_por_hora,
         }
 
     finally:

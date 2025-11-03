@@ -11,8 +11,10 @@ let chartMix = null;
 let chartEvolucao = null;
 
 function formatCurrency(v) {
-  return `R$ ${Number(v).toFixed(2)}`;
+    const valor = Number(v) || 0;
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
 
 // ==================== Popula selects ====================
 async function popularFiltrosProdutos() {
@@ -95,7 +97,6 @@ async function carregarProdutos() {
 
     renderKpis(data.kpis || {});
     renderTopVendidos(data.top_vendidos || []);
-    renderMenuEng(data.menu_engineering || []);
     renderMix(data.mix_categorias || []);
     renderEvolucao(data.evolucao_vendas || []);
 
@@ -141,32 +142,6 @@ chartTopVendidos = new Chart(ctx, {
 type: 'bar',
 data: { labels, datasets: [{ label: 'Unidades', data: values, borderRadius: 6, barThickness: 18 }] },
 options: { plugins:{ legend:{ display:false } }, indexAxis: 'y', scales: { x:{ title:{ display:true, text:'Unidades' }}, y:{ title:{ display:false }}} }
-});
-}
-
-
-function renderMenuEng(items) {
-// items: [{produto, qtde, faturamento, margem_percentual, margem_total}]
-const ctx = document.getElementById('chartMenuEng').getContext('2d');
-if (chartMenuEng) chartMenuEng.destroy();
-
-
-const data = {
-labels: items.map(i => i.produto),
-datasets: [{
-label: 'Menu Engineering',
-data: items.map(i => ({ x: i.qtde, y: i.margem_percentual, r: Math.max(4, Math.sqrt(Math.abs(i.faturamento)) / 5) })),
-}]
-};
-
-
-chartMenuEng = new Chart(ctx, {
-type: 'bubble',
-data,
-options: {
-plugins:{ legend:{ display:false } },
-scales:{ x:{ title:{ display:true, text:'Quantidade (unidades)'} }, y:{ title:{ display:true, text:'Margem (%)' } } }
-}
 });
 }
 

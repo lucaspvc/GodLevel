@@ -1,16 +1,27 @@
+let currentPage = 1;
+let totalPages = 1;
+
+const DASHBOARD_API_URL = "http://127.0.0.1:8000/dashboard/overview";
+
+function formatCurrency(v) {
+    const valor = Number(v) || 0;
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 async function carregarDashboard() {
     try {
-        const response = await fetch("http://127.0.0.1:8000/dashboard/overview");
-        const data = await response.json();
+        const res = await fetch(DASHBOARD_API_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-        // Renderiza KPIs
+        // === KPIs ===
         const kpisDiv = document.getElementById("kpis");
-        const kpis = data.kpis;
+        const k = data.kpis;
         const cards = [
-            { title: "💰 Faturamento Total", value: `R$ ${kpis.faturamento_total.toFixed(2)}` },
-            { title: "🧾 Total de Pedidos", value: kpis.total_pedidos },
-            { title: "💸 Ticket Médio", value: `R$ ${kpis.ticket_medio.toFixed(2)}` },
-            { title: "❌ Taxa de Cancelamento", value: `${kpis.taxa_cancelamento.toFixed(2)}%` },
+            { title: "Faturamento Total", value: formatCurrency(k.faturamento_total) },
+            { title: "Total de Pedidos", value: k.total_pedidos },
+            { title: "Ticket Médio", value: formatCurrency(k.ticket_medio) },
+            { title: "Taxa de Cancelamento", value: `${k.taxa_cancelamento.toFixed(2)}%` },
         ];
         kpisDiv.innerHTML = cards.map(c => `
             <div class="bg-white p-4 rounded-lg shadow text-center">
@@ -19,7 +30,7 @@ async function carregarDashboard() {
             </div>
         `).join("");
 
-        // Gráfico de tendência
+        //GRÁFICO DE TENDÊNCIA
         const ctx = document.getElementById("chartTendencia").getContext("2d");
         const labels = data.tendencia.map(t => t.data);
         const valores = data.tendencia.map(t => t.faturamento);
@@ -27,7 +38,7 @@ async function carregarDashboard() {
         new Chart(ctx, {
             type: "line",
             data: {
-                labels: labels,
+                labels,
                 datasets: [{
                     label: "Faturamento Diário",
                     data: valores,
@@ -39,9 +50,7 @@ async function carregarDashboard() {
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
                     x: { title: { display: true, text: "Data" } },
                     y: { title: { display: true, text: "R$" } }
@@ -49,30 +58,36 @@ async function carregarDashboard() {
             }
         });
 
-        // Top Produtos
+        // === TOP PRODUTOS ===
         const tbodyProdutos = document.getElementById("tabelaProdutos");
-        tbodyProdutos.innerHTML = data.top_produtos.map(p => `
+        tbodyProdutos.innerHTML = (data.top_produtos || []).map(p => `
             <tr class="border-b">
                 <td>${p.produto}</td>
                 <td>${p.quantidade}</td>
-                <td>R$ ${p.receita.toFixed(2)}</td>
+                <td>${formatCurrency(p.receita)}</td>
             </tr>
         `).join("");
 
-        // Faturamento por Loja
+        // === FATURAMENTO POR LOJA ===
         const tbodyLojas = document.getElementById("tabelaLojas");
-        tbodyLojas.innerHTML = data.faturamento_lojas.map(l => `
+        tbodyLojas.innerHTML = (data.faturamento_lojas || []).map(l => `
             <tr class="border-b">
                 <td>${l.loja}</td>
-                <td>R$ ${l.receita.toFixed(2)}</td>
+                <td>${formatCurrency(l.receita)}</td>
             </tr>
         `).join("");
 
     } catch (err) {
         console.error("Erro ao carregar dashboard:", err);
-        document.body.innerHTML = `<div class='p-10 text-center text-red-500'>Erro ao conectar à API</div>`;
+        document.body.innerHTML = `
+            <div class="p-10 text-center text-red-500">
+                Erro ao conectar à API. Verifique se o backend está em execução.
+            </div>
+        `;
     }
 }
 
-// Chama ao abrir a página
-carregarDashboard();
+// === Inicialização ===
+window.addEventListener("load", () => {
+    carregarDashboard();
+});

@@ -7,8 +7,10 @@ let graficoCanais = null;
 const API_BASE = "http://127.0.0.1:8000/dashboard/sales";
 
 function formatCurrency(v) {
-    return `R$ ${Number(v).toFixed(2)}`;
+    const valor = Number(v) || 0;
+    return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
+
 
 async function popularFiltros() {
     try {

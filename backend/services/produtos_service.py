@@ -1,20 +1,49 @@
 from connection import conecta
 
-from connection import conecta
-from datetime import datetime
+def get_produtos(page, limit, category_id=None):
+    """
+    Retorna lista de produtos, opcionalmente filtrando por category_id.
+    Paginação aplicada via page e limit.
+    """
 
-def get_produtos_analitico(
-    page: int = 1,
-    limit: int = 20,
-    start_date=None,
-    end_date=None,
-    store_id=None,
-    channel_id=None,
-    category_id=None,
-    weekday=None,
-    start_hour=None,
-    end_hour=None
-):
+    conn = conecta()
+    cursor = conn.cursor()
+
+    offset = (page - 1) * limit
+    filtros = []
+
+    if category_id:
+        filtros.append(f"p.category_id = {category_id}")
+
+    where_clause = "WHERE TRUE"
+    if filtros:
+        where_clause += " AND " + " AND ".join(filtros)
+
+    query = f"""
+        SELECT p.id, p.name, c.name as categoria
+        FROM products p
+        LEFT JOIN categories c ON p.category_id = c.id
+        {where_clause}
+        ORDER BY p.id
+        LIMIT {limit} OFFSET {offset}
+    """
+
+    cursor.execute(query)
+    resultados = cursor.fetchall()
+    cursor.close()
+
+    produtos = []
+    for r in resultados:
+        produtos.append({
+            "id": r[0],
+            "produto": r[1],
+            "categoria": r[2] or "-"
+        })
+
+    return produtos
+
+def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_date=None,store_id=None,channel_id=None,
+                           category_id=None,weekday=None,start_hour=None,end_hour=None):
     conn = conecta()
     cursor = conn.cursor()
 
@@ -47,10 +76,9 @@ def get_produtos_analitico(
     if end_hour is not None:
         filtros.append("EXTRACT(HOUR FROM s.created_at) < %s")
         params.append(end_hour)
+    where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
 
-    where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
-
-    # === Dados agregados por produto ===
+    # Dados agregados por produto 
     query_principal = f"""
         SELECT
             p.id,
@@ -72,16 +100,9 @@ def get_produtos_analitico(
         LIMIT %s OFFSET %s
     """
 
-
-    # 🔹 Garante que os placeholders correspondem exatamente
     params_main = params + [limit, offset]
-
-    print("QUERY:", query_principal)
-    print("PARAMS:", params_main)
-
     cursor.execute(query_principal, params_main)
     produtos = cursor.fetchall()
-
     produtos_list = [
         {
             "id": r[0],
@@ -95,8 +116,7 @@ def get_produtos_analitico(
         } for r in produtos
     ]
 
-
-    # === KPIs ===
+    # KPIs
     query_kpis = f"""
         SELECT
             SUM(ps.quantity) AS total_itens,
@@ -110,7 +130,6 @@ def get_produtos_analitico(
         JOIN products p ON ps.product_id = p.id
         {where_clause}
     """
-
     cursor.execute(query_kpis, params)
     total_itens, faturamento_total, margem_media = cursor.fetchone()
 
@@ -150,10 +169,10 @@ def get_produtos_analitico(
         "produto_mais_lucrativo": produto_mais_lucrativo
     }
 
-    # === Top vendidos ===
+    # Top vendidos
     top_vendidos = sorted(produtos_list, key=lambda x: x["qtde"], reverse=True)[:10]
 
-    # === Menu engineering ===
+    # Menu engineering
     menu_engineering = [
         {
             "produto": p["produto"],
@@ -164,7 +183,7 @@ def get_produtos_analitico(
         } for p in produtos_list
     ]
 
-    # === Mix por categoria ===
+    # Mix por categoria
     cursor.execute(f"""
         SELECT c.name, SUM(ps.total_price)
         FROM product_sales ps
@@ -181,7 +200,7 @@ def get_produtos_analitico(
         for r in mix_raw
     ]
 
-    # === Evolução de vendas ===
+    # Evolução de vendas
     cursor.execute(f"""
         SELECT
             DATE(s.created_at) AS data,
@@ -209,96 +228,3 @@ def get_produtos_analitico(
         "mix_categorias": mix_categorias,
         "evolucao_vendas": evolucao_vendas
     }
-
-
-def get_produtos(page, limit, category_id=None):
-    """
-    Retorna lista de produtos, opcionalmente filtrando por category_id.
-    Paginação aplicada via page e limit.
-    """
-    conn = conecta()
-    cursor = conn.cursor()
-
-    offset = (page - 1) * limit
-    filtros = []
-
-    if category_id:
-        filtros.append(f"p.category_id = {category_id}")
-
-    where_clause = "WHERE TRUE"
-    if filtros:
-        where_clause += " AND " + " AND ".join(filtros)
-
-    query = f"""
-        SELECT p.id, p.name, c.name as categoria
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        {where_clause}
-        ORDER BY p.id
-        LIMIT {limit} OFFSET {offset}
-    """
-
-    cursor.execute(query)
-    resultados = cursor.fetchall()
-    cursor.close()
-
-    # Converte para lista de dicionários para o frontend
-    produtos = []
-    for r in resultados:
-        produtos.append({
-            "id": r[0],
-            "produto": r[1],
-            "categoria": r[2] or "-"
-        })
-
-    return produtos
-
-
-def get_produto_by_id(produto_id: int):
-    """
-    Retorna um único produto pelo ID.
-    """
-    conn = conecta()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT p.id, p.name, c.name as categoria
-        FROM products p
-        LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.id = %s
-    """, (produto_id,))
-    
-    r = cursor.fetchone()
-    cursor.close()
-    if not r:
-        return None
-
-    return {
-        "id": r[0],
-        "produto": r[1],
-        "categoria": r[2] or "-"
-    }
-
-
-def criar_produto(data: dict):
-    """
-    Insere um novo produto no catálogo.
-    """
-    conn = conecta()
-    cursor = conn.cursor()
-
-    query = """
-        INSERT INTO products (name, category_id)
-        VALUES (%s, %s) RETURNING id
-    """
-
-    cursor.execute(query, (
-        data["name"],
-        data.get("category_id")
-    ))
-
-    novo_id = cursor.fetchone()[0]
-    conn.commit()
-    cursor.close()
-
-    return {"id": novo_id, "mensagem": "Produto criado com sucesso!"}
