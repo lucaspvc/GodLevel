@@ -24,7 +24,7 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
 
         where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
 
-        # 1️⃣ KPIs principais
+        # KPIs principais
         kpis_sql = f"""
             SELECT
                 COUNT(*)::int AS total_pedidos,
@@ -45,7 +45,7 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
             "taxa_cancelamento": float(kpis_row[3]),
         }
 
-        # 2️⃣ Tendência de faturamento diário
+        # Tendência de faturamento diário
         tendencia_sql = f"""
             SELECT 
                 DATE(s.created_at) AS data, 
@@ -61,7 +61,7 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
             {"data": str(r[0]), "faturamento": float(r[1])} for r in tendencia_rows
         ]
 
-        # 3️⃣ Top produtos
+        # Top produtos
         top_produtos_sql = f"""
             SELECT 
                 p.name AS produto,
@@ -82,7 +82,7 @@ def get_dashboard_overview(start_date=None, end_date=None, store_id=None, channe
             for r in top_produtos_rows
         ]
 
-        # 4️⃣ Faturamento por loja
+        # Faturamento por loja
         faturamento_lojas_sql = f"""
             SELECT 
                 st.name AS loja,

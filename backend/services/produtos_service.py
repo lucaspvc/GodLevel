@@ -5,13 +5,13 @@ def get_produtos(page, limit, category_id=None):
     Retorna lista de produtos, opcionalmente filtrando por category_id.
     Paginação aplicada via page e limit.
     """
-
     conn = conecta()
     cursor = conn.cursor()
 
     offset = (page - 1) * limit
     filtros = []
 
+    # Filtro opcional por categoria
     if category_id:
         filtros.append(f"p.category_id = {category_id}")
 
@@ -19,8 +19,9 @@ def get_produtos(page, limit, category_id=None):
     if filtros:
         where_clause += " AND " + " AND ".join(filtros)
 
+    # Consulta principal de produtos
     query = f"""
-        SELECT p.id, p.name, c.name as categoria
+        SELECT p.id, p.name, c.name AS categoria
         FROM products p
         LEFT JOIN categories c ON p.category_id = c.id
         {where_clause}
@@ -31,19 +32,25 @@ def get_produtos(page, limit, category_id=None):
     cursor.execute(query)
     resultados = cursor.fetchall()
     cursor.close()
+    conn.close()
 
-    produtos = []
-    for r in resultados:
-        produtos.append({
-            "id": r[0],
-            "produto": r[1],
-            "categoria": r[2] or "-"
-        })
+    # Mapeamento dos resultados em dicionário
+    produtos = [
+        {"id": r[0], "produto": r[1], "categoria": r[2] or "-"}
+        for r in resultados
+    ]
 
     return produtos
 
-def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_date=None,store_id=None,channel_id=None,
-                           category_id=None,weekday=None,start_hour=None,end_hour=None):
+
+def get_produtos_analitico(page: int = 1, limit: int = 20, start_date=None, end_date=None,
+                           store_id=None, channel_id=None, category_id=None,
+                           weekday=None, start_hour=None, end_hour=None):
+    """
+    Retorna uma visão analítica de produtos, com KPIs, faturamento, margem, 
+    produtos mais vendidos, lucrativos e evolução de vendas.
+    Aceita múltiplos filtros dinâmicos e aplica paginação.
+    """
     conn = conecta()
     cursor = conn.cursor()
 
@@ -103,6 +110,7 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
     params_main = params + [limit, offset]
     cursor.execute(query_principal, params_main)
     produtos = cursor.fetchall()
+
     produtos_list = [
         {
             "id": r[0],
@@ -113,10 +121,11 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
             "custo": float(r[5] or 0),
             "margem_percentual": round(float(r[6] or 0), 2),
             "margem_total": float(r[7] or 0)
-        } for r in produtos
+        }
+        for r in produtos
     ]
 
-    # KPIs
+    # KPIs gerais
     query_kpis = f"""
         SELECT
             SUM(ps.quantity) AS total_itens,
@@ -133,7 +142,7 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
     cursor.execute(query_kpis, params)
     total_itens, faturamento_total, margem_media = cursor.fetchone()
 
-    # Produto mais vendido
+    # Produto mais vendido 
     cursor.execute(f"""
         SELECT p.name
         FROM product_sales ps
@@ -147,7 +156,7 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
     mais_vendido = cursor.fetchone()
     produto_mais_vendido = mais_vendido[0] if mais_vendido else "-"
 
-    # Produto mais lucrativo
+    # Produto mais lucrativo 
     cursor.execute(f"""
         SELECT p.name
         FROM product_sales ps
@@ -169,19 +178,9 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
         "produto_mais_lucrativo": produto_mais_lucrativo
     }
 
-    # Top vendidos
+    # Top 10 mais vendidos 
     top_vendidos = sorted(produtos_list, key=lambda x: x["qtde"], reverse=True)[:10]
 
-    # Menu engineering
-    menu_engineering = [
-        {
-            "produto": p["produto"],
-            "qtde": p["qtde"],
-            "faturamento": p["faturamento"],
-            "margem_percentual": p["margem_percentual"],
-            "margem_total": p["margem_total"]
-        } for p in produtos_list
-    ]
 
     # Mix por categoria
     cursor.execute(f"""
@@ -213,7 +212,10 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
         ORDER BY data
     """, params)
     evolucao_raw = cursor.fetchall()
-    evolucao_vendas = [{"data": str(r[0]), "valor": float(r[1] or 0)} for r in evolucao_raw]
+    evolucao_vendas = [
+        {"data": str(r[0]).split('.')[0] if r[0] else None, "valor": float(r[1] or 0)}
+        for r in evolucao_raw
+    ]
 
     cursor.close()
     conn.close()
@@ -224,7 +226,6 @@ def get_produtos_analitico(page: int = 1,limit: int = 20,start_date=None,end_dat
         "produtos": produtos_list,
         "kpis": kpis,
         "top_vendidos": top_vendidos,
-        "menu_engineering": menu_engineering,
         "mix_categorias": mix_categorias,
         "evolucao_vendas": evolucao_vendas
     }

@@ -9,28 +9,23 @@ def get_unidades_overview(page, limit, start_date=None, end_date=None, status=No
         filtros = []
         params = []
 
-        # Filtro por intervalo de datas
+        # Filtro dinâmicos
         if start_date and end_date:
             filtros.append("s.created_at BETWEEN %s AND %s")
             params.append(f"{start_date} 00:00:00")
             params.append(f"{end_date} 23:59:59")
 
-        # Filtro por canal
         if channel_id:
             filtros.append("s.channel_id = %s")
             params.append(channel_id)
 
-        # Filtro por status (ativa/inativa)
         if status:
             filtros.append("st.is_active = %s")
             params.append(True if status.lower() == "ativa" else False)
 
-        # Monta WHERE final
         where_clause = "WHERE " + " AND ".join(filtros) if filtros else ""
 
-        # -------------------------
-        # 1️⃣ KPIs gerais
-        # -------------------------
+        # KPIs gerais
         kpis_sql = f"""
             SELECT
                 COUNT(DISTINCT st.id) AS total_unidades,
@@ -50,18 +45,14 @@ def get_unidades_overview(page, limit, start_date=None, end_date=None, status=No
             "unidades_ativas": int(kpis_row[3]),
         }
 
-        # -------------------------
-        # 2️⃣ Paginação
-        # -------------------------
+        # Paginação
         count_sql = "SELECT COUNT(*) FROM stores st;"
         cursor.execute(count_sql)
         total_registros = cursor.fetchone()[0]
         total_paginas = math.ceil(total_registros / limit) if limit else 1
         offset = (page - 1) * limit
 
-        # -------------------------
-        # 3️⃣ Lista de unidades
-        # -------------------------
+        # Lista de unidades
         unidades_sql = f"""
             SELECT
                 st.id,

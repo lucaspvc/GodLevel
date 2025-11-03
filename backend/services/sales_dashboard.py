@@ -11,9 +11,8 @@ def get_dashboard_sales(
     cursor = conn.cursor()
 
     try:
-        # ---------------------------------------
-        # 🔍 Montagem de filtros dinâmicos
-        # ---------------------------------------
+        
+        # Filtros dinâmicos
         filtros = []
         params = []
 
@@ -43,9 +42,7 @@ def get_dashboard_sales(
 
         where_clause = f"WHERE {' AND '.join(filtros)}" if filtros else ""
 
-        # ---------------------------------------
-        # 1️⃣ KPIs principais
-        # ---------------------------------------
+        # KPIs principais
         kpis_sql = f"""
             SELECT
                 COUNT(*)::int AS total_pedidos,
@@ -67,9 +64,7 @@ def get_dashboard_sales(
             "taxa_cancelamento": float(taxa_cancelamento or 0),
         }
 
-        # ---------------------------------------
-        # 2️⃣ Faturamento diário (timeseries)
-        # ---------------------------------------
+        # Faturamento diário (timeseries)
         tendencia_sql = f"""
             SELECT
                 DATE(s.created_at) AS data,
@@ -84,9 +79,7 @@ def get_dashboard_sales(
             {"data": str(r[0]), "faturamento": float(r[1])} for r in cursor.fetchall()
         ]
 
-        # ---------------------------------------
-        # 3️⃣ Vendas por canal
-        # ---------------------------------------
+        # Vendas por canal
         canais_sql = f"""
             SELECT
                 COALESCE(ch.name, 'Desconhecido') AS canal,
@@ -103,18 +96,14 @@ def get_dashboard_sales(
             for canal, total in cursor.fetchall()
         ]
 
-        # ---------------------------------------
-        # 4️⃣ Paginação
-        # ---------------------------------------
+        # Paginação
         count_sql = f"SELECT COUNT(*) FROM sales s {where_clause};"
         cursor.execute(count_sql, tuple(params))
         total_registros = cursor.fetchone()[0]
         total_paginas = math.ceil(total_registros / limit) if limit else 1
         offset = (page - 1) * limit
 
-        # ---------------------------------------
-        # 5️⃣ Lista de pedidos
-        # ---------------------------------------
+        # Lista de pedidos
         pedidos_sql = f"""
             SELECT
                 s.id,
@@ -146,9 +135,7 @@ def get_dashboard_sales(
             for r in cursor.fetchall()
         ]
 
-        # ---------------------------------------
-        # 6️⃣ Vendas por dia da semana
-        # ---------------------------------------
+        # Vendas por dia da semana
         semana_sql = f"""
             SELECT 
                 TO_CHAR(s.created_at, 'Day') AS dia_semana,
@@ -170,9 +157,7 @@ def get_dashboard_sales(
             for r in cursor.fetchall()
         ]
 
-        # ---------------------------------------
-        # 7️⃣ Vendas por hora
-        # ---------------------------------------
+        # Vendas por hora
         hora_sql = f"""
             SELECT 
                 DATE_TRUNC('hour', s.created_at) AS hora,
@@ -193,9 +178,7 @@ def get_dashboard_sales(
             for r in cursor.fetchall()
         ]
 
-        # ---------------------------------------
-        # ✅ Retorno final
-        # ---------------------------------------
+        # Retorno final
         return {
             "kpis": kpis,
             "faturamento_diario": faturamento_diario,
