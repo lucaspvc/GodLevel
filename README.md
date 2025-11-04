@@ -41,6 +41,8 @@ Uma plataforma onde um dono de restaurante possa:
 | [AVALIACAO.md](./AVALIACAO.md) | Como avaliaremos sua solução |
 | [FAQ.md](./FAQ.md) | Perguntas frequentes |
 | [QUICKSTART.md](./QUICKSTART.md) | Tutorial rápido para começar o desafio |
+| [RESOLUCAO.md](./RESOLUCAO.md) | Resolução para o desafio |
+
 
 ## Avaliação
 
