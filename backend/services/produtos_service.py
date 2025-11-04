@@ -46,6 +46,7 @@ def get_produtos(page, limit, category_id=None):
 def get_produtos_analitico(page: int = 1, limit: int = 20, start_date=None, end_date=None,
                            store_id=None, channel_id=None, category_id=None,
                            weekday=None, start_hour=None, end_hour=None):
+    
     """
     Retorna uma visão analítica de produtos, com KPIs, faturamento, margem, 
     produtos mais vendidos, lucrativos e evolução de vendas.
